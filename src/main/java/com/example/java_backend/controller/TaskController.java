@@ -1,5 +1,6 @@
 package com.example.java_backend.controller;
 
+import com.example.java_backend.dto.request.AssignTaskRequest;
 import com.example.java_backend.dto.request.CreateTaskRequest;
 import com.example.java_backend.dto.request.UpdateTaskRequest;
 import com.example.java_backend.dto.response.TaskResponse;
@@ -40,5 +41,12 @@ public class TaskController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTask(@PathVariable Long id) {
         taskService.deleteTask(id);
+    }
+
+    @PatchMapping("/{id}/assign")
+    public TaskResponse assignTask(
+            @PathVariable Long id,
+            @Valid @RequestBody AssignTaskRequest request) {
+        return taskService.assignTask(id, request);
     }
 }

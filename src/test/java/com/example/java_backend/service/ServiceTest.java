@@ -1,9 +1,6 @@
 package com.example.java_backend.service;
 
-import com.example.java_backend.dto.request.CreateProjectRequest;
-import com.example.java_backend.dto.request.CreateTaskRequest;
-import com.example.java_backend.dto.request.CreateUserRequest;
-import com.example.java_backend.dto.request.UpdateTaskRequest;
+import com.example.java_backend.dto.request.*;
 import com.example.java_backend.entity.Project;
 import com.example.java_backend.entity.Task;
 import com.example.java_backend.entity.User;
@@ -193,6 +190,28 @@ class ServiceTest {
         when(taskRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> taskService.deleteTask(99L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    //UC10: Assign Task
+    @Test
+    void assignTask_shouldReturnTaskResponse() {
+        var task = dummyTask();
+        var user = dummyUser();
+        var request = new AssignTaskRequest(1L);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(taskRepository.save(task)).thenReturn(task);
+        when(taskMapper.toResponse(task)).thenCallRealMethod();
+
+        assertThat(taskService.assignTask(1L, request).title()).isEqualTo("Task 1");
+    }
+
+    @Test
+    void assignTask_shouldThrowWhenTaskNotFound() {
+        when(taskRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> taskService.assignTask(99L, new AssignTaskRequest(1L)))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 }
