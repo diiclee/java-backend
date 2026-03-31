@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: java-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: java_db
+      POSTGRES_USER: feature
+      POSTGRES_PASSWORD: feature
+    ports:
+      - "6542:5432"
+    volumes:
+      - java_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  java_postgres_data:
