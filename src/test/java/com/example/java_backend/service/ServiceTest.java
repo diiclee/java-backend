@@ -1,14 +1,19 @@
 package com.example.java_backend.service;
 
 import com.example.java_backend.dto.request.*;
+import com.example.java_backend.entity.Comment;
 import com.example.java_backend.entity.Project;
 import com.example.java_backend.entity.Task;
 import com.example.java_backend.entity.User;
 import com.example.java_backend.entity.enums.TaskPriority;
+import com.example.java_backend.entity.enums.TaskStatus;
+import com.example.java_backend.exception.BadRequestException;
 import com.example.java_backend.exception.ResourceNotFoundException;
+import com.example.java_backend.mapper.CommentMapper;
 import com.example.java_backend.mapper.ProjectMapper;
 import com.example.java_backend.mapper.TaskMapper;
 import com.example.java_backend.mapper.UserMapper;
+import com.example.java_backend.repository.CommentRepository;
 import com.example.java_backend.repository.ProjectRepository;
 import com.example.java_backend.repository.TaskRepository;
 import com.example.java_backend.repository.UserRepository;
@@ -40,10 +45,15 @@ class ServiceTest {
     @Mock private TaskMapper taskMapper;
     @InjectMocks private TaskService taskService;
 
+    @Mock private CommentRepository commentRepository;
+    @Mock private CommentMapper commentMapper;
+    @InjectMocks private CommentService commentService;
+
     //Helpers
     private User dummyUser() { return new User(1L, "Alice", "alice@example.com"); }
     private Project dummyProject() { return new Project("Project", null, dummyUser()); }
     private Task dummyTask() { return new Task("Task 1", null, TaskPriority.HIGH, null, dummyProject()); }
+    private Comment dummyComment() {return new Comment("Nice task", dummyTask(), dummyUser());}
 
     //UC1: Create User
     @Test
@@ -213,5 +223,126 @@ class ServiceTest {
 
         assertThatThrownBy(() -> taskService.assignTask(99L, new AssignTaskRequest(1L)))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // UC11: Unassign Task
+    @Test
+    void unassignTask_shouldReturnTaskResponse() {
+        var task = dummyTask();
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(task)).thenReturn(task);
+        when(taskMapper.toResponse(task)).thenCallRealMethod();
+
+        assertThatCode(() -> taskService.unassignTask(1L)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void unassignTask_shouldThrowWhenNotFound() {
+        when(taskRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> taskService.unassignTask(99L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // UC12: Change Task Status
+    @Test
+    void changeTaskStatus_shouldReturnUpdatedStatus() {
+        var task = dummyTask();
+        var request = new ChangeTaskStatusRequest(TaskStatus.IN_PROGRESS);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(task)).thenReturn(task);
+        when(taskMapper.toResponse(task)).thenCallRealMethod();
+
+        assertThatCode(() -> taskService.changeTaskStatus(1L, request)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void changeTaskStatus_shouldThrowWhenTransitionNotAllowed() {
+        var task = dummyTask(); // status is OPEN by default
+        var request = new ChangeTaskStatusRequest(TaskStatus.COMPLETED);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+
+        assertThatThrownBy(() -> taskService.changeTaskStatus(1L, request))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void changeTaskStatus_shouldThrowWhenTaskNotFound() {
+        when(taskRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> taskService.changeTaskStatus(99L, new ChangeTaskStatusRequest(TaskStatus.IN_PROGRESS)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // UC13: Add Comment
+    @Test
+    void addComment_shouldReturnCommentResponse() {
+        var request = new AddCommentRequest("Nice task", 1L);
+        var task = dummyTask();
+        var author = dummyUser();
+        var comment = dummyComment();
+
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(author));
+        when(commentMapper.toEntity(request, task, author)).thenReturn(comment);
+        when(commentRepository.save(comment)).thenReturn(comment);
+        when(commentMapper.toResponse(comment)).thenCallRealMethod();
+
+        assertThatCode(() -> commentService.addComment(1L, request)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void addComment_shouldThrowWhenTaskNotFound() {
+        when(taskRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commentService.addComment(99L, new AddCommentRequest("Nice task", 1L)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void addComment_shouldThrowWhenAuthorNotFound() {
+        var task = dummyTask();
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commentService.addComment(1L, new AddCommentRequest("Nice task", 99L)))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    //UC14: View Comments
+    @Test
+    void getComments_shouldReturnComments() {
+        var task = dummyTask();
+        var comment = dummyComment();
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(commentRepository.findByTaskId(1L)).thenReturn(List.of(comment));
+        when(commentMapper.toResponse(comment)).thenCallRealMethod();
+
+        assertThat(commentService.getComments(1L)).hasSize(1);
+    }
+
+    @Test
+    void getComments_shouldThrowWhenTaskNotFound() {
+        when(taskRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commentService.getComments(99L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // UC15: Search Tasks
+    @Test
+    void searchTasks_shouldReturnMatchingTasks() {
+        var task = dummyTask();
+        when(taskRepository.findByTitleContainingIgnoreCase("Task")).thenReturn(List.of(task));
+        when(taskMapper.toResponse(task)).thenCallRealMethod();
+
+        assertThat(taskService.searchTasks("Task")).hasSize(1);
+    }
+
+    @Test
+    void searchTasks_shouldReturnEmptyWhenNoMatch() {
+        when(taskRepository.findByTitleContainingIgnoreCase("xyz")).thenReturn(List.of());
+
+        assertThat(taskService.searchTasks("xyz")).isEmpty();
     }
 }

@@ -1,9 +1,11 @@
 package com.example.java_backend.service;
 
 import com.example.java_backend.dto.request.AssignTaskRequest;
+import com.example.java_backend.dto.request.ChangeTaskStatusRequest;
 import com.example.java_backend.dto.request.CreateTaskRequest;
 import com.example.java_backend.dto.request.UpdateTaskRequest;
 import com.example.java_backend.dto.response.TaskResponse;
+import com.example.java_backend.exception.BadRequestException;
 import com.example.java_backend.exception.ResourceNotFoundException;
 import com.example.java_backend.mapper.TaskMapper;
 import com.example.java_backend.repository.ProjectRepository;
@@ -11,6 +13,8 @@ import com.example.java_backend.repository.TaskRepository;
 import com.example.java_backend.repository.UserRepository;
 import com.example.java_backend.util.RepositoryUtils;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class TaskService {
@@ -63,5 +67,29 @@ public class TaskService {
         task.setAssignedUser(user);
         var savedTask = taskRepository.save(task);
         return taskMapper.toResponse(savedTask);
+    }
+
+    public TaskResponse unassignTask(Long id) {
+        var task = RepositoryUtils.findByIdOrThrow(taskRepository, id, "Task");
+        task.setAssignedUser(null);
+        var savedTask = taskRepository.save(task);
+        return taskMapper.toResponse(savedTask);
+    }
+
+    public TaskResponse changeTaskStatus(Long id, ChangeTaskStatusRequest request) {
+        var task = RepositoryUtils.findByIdOrThrow(taskRepository, id, "Task");
+        if (!task.getStatus().canTransitionTo(request.status())) {
+            throw new BadRequestException("Status transition from " + task.getStatus() + " to " + request.status() + " is not allowed");
+        }
+        task.setStatus(request.status());
+        var savedTask = taskRepository.save(task);
+        return taskMapper.toResponse(savedTask);
+    }
+
+    public List<TaskResponse> searchTasks(String keyword) {
+        return taskRepository.findByTitleContainingIgnoreCase(keyword)
+                .stream()
+                .map(taskMapper::toResponse)
+                .toList();
     }
 }

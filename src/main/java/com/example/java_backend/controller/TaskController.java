@@ -1,6 +1,7 @@
 package com.example.java_backend.controller;
 
 import com.example.java_backend.dto.request.AssignTaskRequest;
+import com.example.java_backend.dto.request.ChangeTaskStatusRequest;
 import com.example.java_backend.dto.request.CreateTaskRequest;
 import com.example.java_backend.dto.request.UpdateTaskRequest;
 import com.example.java_backend.dto.response.TaskResponse;
@@ -8,6 +9,8 @@ import com.example.java_backend.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/tasks")
@@ -48,5 +51,22 @@ public class TaskController {
             @PathVariable Long id,
             @Valid @RequestBody AssignTaskRequest request) {
         return taskService.assignTask(id, request);
+    }
+
+    @PatchMapping("/{id}/unassign")
+    public TaskResponse unassignTask(@PathVariable Long id){
+        return taskService.unassignTask(id);
+    }
+
+    @PatchMapping("/{id}/status")
+    public TaskResponse changeTaskStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody ChangeTaskStatusRequest request) {
+        return taskService.changeTaskStatus(id, request);
+    }
+
+    @GetMapping("/search")
+    public List<TaskResponse> searchTasks(@RequestParam String keyword) {
+        return taskService.searchTasks(keyword);
     }
 }
